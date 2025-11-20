@@ -1,0 +1,262 @@
+================================================================================
+                    ROTEIRO DE VÍDEO - REDE MAIS SOCIAL
+           Explicação do Código-fonte através dos Diagramas UML
+================================================================================
+
+DURAÇÃO ESTIMADA: 8-12 minutos
+PARTICIPANTES: Estudante 1 (E1) e Estudante 2 (E2)
+
+================================================================================
+PARTE 1: INTRODUÇÃO (1 minuto)
+================================================================================
+
+[TELA: Mostrar página inicial do projeto no GitHub ou título do projeto]
+
+E1: Oi! Somos [Nome E1] e [Nome E2], e hoje vamos apresentar nosso projeto 
+    da disciplina: a Rede Mais Social.
+
+E2: É uma plataforma web que conecta voluntários e ONGs. Desenvolvemos usando
+    Java no backend, MySQL como banco de dados, e HTML, CSS e JavaScript no
+    frontend.
+
+E1: Vamos explicar como o código funciona usando os diagramas UML que criamos.
+    Prontas? Então vamos lá!
+
+================================================================================
+PARTE 2: VISÃO GERAL DO SISTEMA (1-2 minutos)
+================================================================================
+
+[TELA: Mostrar diagrama de casos de uso]
+
+E2: Primeiro, vamos ver o que o sistema faz. Aqui no diagrama de casos de uso
+    temos os principais atores e funcionalidades.
+
+E1: O candidato pode solicitar afiliação, que é basicamente fazer um cadastro.
+    Ele preenche os dados, recebe um email com um token, e valida esse token.
+
+E2: Depois, o representante da rede analisa o pedido e pode aprovar ou rejeitar.
+    Se for aprovado, o candidato vira voluntário e pode participar das campanhas.
+
+E1: É um fluxo bem simples, mas tem toda uma validação por trás.
+
+================================================================================
+PARTE 3: DIAGRAMA DE CLASSES (2-3 minutos)
+================================================================================
+
+[TELA: Mostrar diagrama de classes]
+
+E2: Agora vamos pro diagrama de classes, que mostra como organizamos o código.
+
+E1: Aqui no topo temos as classes de modelo. A classe Candidato guarda os dados
+    da pessoa: nome, email, CPF ou CNPJ, endereço, essas coisas.
+
+E2: [APONTAR] E a classe Afiliacao guarda a solicitação: qual candidato fez,
+    o token gerado, a data, e o status - se tá pendente, aprovado ou rejeitado.
+
+E1: No meio temos os DAOs, que são as classes que conversam com o banco de dados.
+
+E2: [APONTAR] O CandidatoDAO tem os métodos pra inserir candidato, buscar por
+    email, buscar por ID... todas as operações relacionadas à tabela de candidatos.
+
+E1: E o AfiliacaoDAO faz a mesma coisa mas pra tabela de afiliações: inserir,
+    validar token, buscar por token...
+
+E2: Aqui embaixo temos o Controller, que é onde fica a lógica do sistema.
+
+E1: [APONTAR] O AfiliacaoController usa os DAOs pra fazer as operações. 
+    Por exemplo, quando cria um candidato, ele valida os dados, gera o token,
+    salva no banco através do DAO, e envia o email.
+
+E2: E no topo temos o WebServer, que recebe as requisições HTTP do navegador e
+    chama os métodos do Controller. É ele que faz a ponte entre o frontend e
+    o backend.
+
+================================================================================
+PARTE 4: DIAGRAMA DE SEQUÊNCIA (2-3 minutos)
+================================================================================
+
+[TELA: Mostrar diagrama de sequência - UC002 Solicitar Afiliação]
+
+E1: Agora vem a parte mais legal: o diagrama de sequência. Ele mostra como
+    as classes interagem quando alguém faz um cadastro.
+
+E2: Então, o voluntário preenche o formulário no navegador e clica em 
+    "Solicitar Afiliação".
+
+E1: [APONTAR SETA] O formulário envia uma requisição POST pro WebServer com
+    todos os dados em JSON.
+
+E2: [APONTAR] O WebServer recebe e chama o método criarCandidato do 
+    AfiliacaoController, passando os dados.
+
+E1: [APONTAR] O Controller primeiro valida o email e o CPF ou CNPJ usando
+    a classe Validador.
+
+E2: Se tiver válido, ele cria um objeto Candidato com os dados recebidos.
+
+E1: [APONTAR] Aí chama o CandidatoDAO pra inserir no banco de dados.
+    O DAO executa o INSERT e retorna o ID do candidato criado.
+
+E2: [APONTAR] Com o ID do candidato, o Controller gera um token MD5 de 32
+    caracteres pra validação.
+
+E1: [APONTAR] Cria um objeto Afiliacao com o ID do candidato e o token, e
+    salva no banco através do AfiliacaoDAO.
+
+E2: [APONTAR] Por último, chama o EmailService pra enviar o email com o token
+    pro candidato.
+
+E1: E retorna uma resposta JSON pro navegador dizendo que deu certo e mostrando
+    o token na tela.
+
+E2: É um processo sequencial, cada passo depende do anterior.
+
+================================================================================
+PARTE 5: MODELO ENTIDADE-RELACIONAMENTO (1 minuto)
+================================================================================
+
+[TELA: Mostrar diagrama MER do banco de dados]
+
+E1: Agora vamos ver como ficou o banco de dados. Criamos duas tabelas principais.
+
+E2: [APONTAR] A tabela candidato tem todos os campos: ID, nome, email, CPF,
+    CNPJ, data de nascimento, endereço, telefone, e outros dados pessoais.
+
+E1: [APONTAR] E a tabela afiliacao guarda o ID da solicitação, o ID do candidato
+    (que é uma chave estrangeira), o token gerado, a data da solicitação, e o
+    status.
+
+E2: O relacionamento é um-pra-muitos: um candidato pode ter várias solicitações
+    de afiliação, mas cada afiliação pertence a um único candidato.
+
+E1: Simples e funcional!
+
+================================================================================
+PARTE 6: DEMONSTRAÇÃO DO SISTEMA FUNCIONANDO (3-4 minutos)
+================================================================================
+
+[TELA: Abrir navegador com o sistema rodando]
+
+E2: Agora vamos mostrar o sistema funcionando de verdade!
+
+E1: [NAVEGAR] Aqui é a página inicial. Vou clicar em "Quero me Cadastrar".
+
+E2: [TELA: tipo-afiliacao.html] Aparece pra escolher se é pessoa física ou
+    jurídica. Vou escolher pessoa física.
+
+E1: [TELA: formulario-identificacao.html] Agora preencho meus dados: nome,
+    email, CPF... Preenchendo aqui... Pronto! "Próximo".
+
+E2: [TELA: formulario-perfil.html] Segunda etapa: perfil do voluntário.
+    Escrevo um pouco sobre mim, minhas habilidades e áreas de interesse.
+
+E1: Coloquei que tenho habilidade com programação e interesse em educação.
+    "Próximo"!
+
+E2: [TELA: termo-compromisso.html] Agora tem o termo de compromisso. Vou ler...
+    aceito os termos... e "Solicitar Afiliação".
+
+E1: [MODAL APARECE] Olha! O sistema gerou um token e mostrou na tela. Esse
+    mesmo token foi enviado pro meu email.
+
+E2: [COPIAR TOKEN] Vou copiar e colar aqui na validação. "Validar".
+
+E1: [TELA: status-aguardando.html] E pronto! Agora meu cadastro tá aguardando
+    aprovação.
+
+[OPCIONAL: Mostrar no banco de dados]
+
+E2: [MUDAR PARA TERMINAL] Só pra comprovar, vou mostrar no banco de dados...
+
+E1: [DIGITAR] mysql -u root
+    [DIGITAR] USE rede_mais_social;
+    [DIGITAR] SELECT nome, email, situacao FROM candidato;
+
+E2: [APONTAR] Olha aqui! Meu cadastro tá salvo com situação "PENDENTE".
+
+E1: [DIGITAR] SELECT token, status FROM afiliacao WHERE id_candidato = [ID];
+
+E2: [APONTAR] E aqui tá o token que foi gerado e o status da afiliação.
+
+E1: Funcionou perfeitamente!
+
+================================================================================
+PARTE 7: CÓDIGO-FONTE (1-2 minutos - OPCIONAL)
+================================================================================
+
+[TELA: Abrir VSCode ou editor com o código]
+
+E2: Rapidinho, vamos mostrar uma parte do código pra vocês verem como 
+    implementamos.
+
+E1: [ABRIR WebServer.java] Aqui no WebServer, olha o método que recebe a
+    requisição de afiliação. Ele lê o JSON, converte pra objeto Candidato,
+    e chama o Controller.
+
+E2: [ABRIR AfiliacaoController.java] E aqui no Controller, esse é o método
+    criarCandidato. Valida email e CPF, insere no banco, gera token, salva
+    a afiliação, e envia email. Exatamente como mostramos no diagrama!
+
+E1: [ABRIR CandidatoDAO.java] E aqui no DAO temos o método inserir que monta
+    o SQL e executa no banco. Simples e direto.
+
+E2: Todo o código segue essa arquitetura MVC que definimos nos diagramas.
+
+================================================================================
+PARTE 8: CONCLUSÃO (30 segundos - 1 minuto)
+================================================================================
+
+[TELA: Voltar para slides ou página inicial]
+
+E1: Então, esse foi nosso projeto Rede Mais Social!
+
+E2: Mostramos como os diagramas UML ajudaram a organizar o código, e como tudo
+    se conecta: do clique no botão até salvar no banco de dados.
+
+E1: A gente usou MVC, separando bem as responsabilidades de cada classe.
+
+E2: E criamos um sistema funcional que de fato cadastra voluntários e ONGs.
+
+E1: Foi um projeto desafiador mas aprendemos muito sobre desenvolvimento web
+    e banco de dados!
+
+E2: É isso! Obrigada pela atenção!
+
+E1 e E2: Tchau!
+
+================================================================================
+DICAS PARA GRAVAÇÃO
+================================================================================
+
+ANTES DE GRAVAR:
+- Ensaiem pelo menos 2 vezes
+- Testem o sistema completamente antes
+- Tenham o banco limpo ou com poucos registros
+- Preparem um cadastro fictício com dados já pensados
+- Deixem todos os diagramas abertos em abas separadas
+- Configurem o zoom dos diagramas para ficarem legíveis
+
+DURANTE A GRAVAÇÃO:
+- Falem de forma natural, não robotizada
+- Usem "olha aqui", "como podem ver", "vou mostrar"
+- Apontem (com cursor ou mão) as partes importantes
+- Se errarem, não tem problema! Podem cortar depois
+- Mantenham energia e entusiasmo
+- Alternem quem fala para não ficar monótono
+
+DIVISÃO DE TAREFAS SUGERIDA:
+E1: Apresentação, Casos de Uso, Diagrama de Sequência, Demonstração do sistema
+E2: Introdução, Diagrama de Classes, MER, Verificação no banco, Conclusão
+
+RECURSOS NECESSÁRIOS:
+- Gravador de tela (OBS Studio, Zoom, etc)
+- Microfone funcionando bem
+- Sistema rodando (bash run.sh)
+- MySQL com banco criado
+- Diagramas abertos
+- Navegador preparado
+- Editor de código aberto (opcional)
+
+BOA SORTE! 🎬🚀
+
+================================================================================
