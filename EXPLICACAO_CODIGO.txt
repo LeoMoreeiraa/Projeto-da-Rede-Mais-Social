@@ -1,0 +1,890 @@
+================================================================================
+                EXPLICAÇÃO DETALHADA DO CÓDIGO - REDE MAIS SOCIAL
+                        Guia para Entender e Explicar
+================================================================================
+
+Este documento explica linha por linha como o código funciona, para você
+conseguir explicar no vídeo com segurança.
+
+================================================================================
+1. WEBSERVER.JAVA - O SERVIDOR HTTP
+================================================================================
+
+PROPÓSITO:
+----------
+É o "coração" do sistema. Recebe requisições HTTP do navegador e responde.
+Funciona como um mini-servidor web feito em Java.
+
+COMO FUNCIONA:
+--------------
+
+PARTE 1: Inicialização do Servidor
+-----------------------------------
+```java
+public static void main(String[] args) throws Exception {
+    HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
+```
+→ Cria um servidor HTTP que escuta na porta 8080
+→ InetSocketAddress(8080) = "escute requisições vindas de localhost:8080"
+→ O "0" significa: use o número padrão de conexões simultâneas
+
+```java
+    server.createContext("/", new StaticFileHandler());
+```
+→ "Quando alguém acessar qualquer URL (começando com /), use StaticFileHandler"
+→ StaticFileHandler serve arquivos HTML, CSS, JS
+
+```java
+    server.createContext("/api/solicitar-afiliacao", new SolicitarAfiliacaoHandler());
+```
+→ "Quando alguém acessar /api/solicitar-afiliacao, use SolicitarAfiliacaoHandler"
+→ Esse é o endpoint que recebe o cadastro do voluntário
+
+```java
+    server.setExecutor(null);
+    server.start();
+```
+→ setExecutor(null) = use o executor padrão (gerencia threads)
+→ start() = inicia o servidor
+→ Agora ele fica "ouvindo" e esperando requisições
+
+
+PARTE 2: StaticFileHandler - Serve Arquivos Estáticos
+------------------------------------------------------
+```java
+static class StaticFileHandler implements HttpHandler {
+    public void handle(HttpExchange exchange) throws IOException {
+```
+→ Essa classe implementa HttpHandler = sabe receber e responder requisições
+→ handle() é chamado toda vez que alguém acessa uma URL
+
+```java
+        String path = exchange.getRequestURI().getPath();
+        if (path.equals("/")) {
+            path = "/index.html";
+        }
+```
+→ Pega o caminho da URL (ex: "/index.html")
+→ Se for só "/" (raiz), redireciona pra "/index.html"
+
+```java
+        File file = new File("web" + path);
+        if (file.exists() && !file.isDirectory()) {
+```
+→ Tenta achar o arquivo na pasta "web"
+→ Exemplo: se pediu "/index.html", procura "web/index.html"
+→ Verifica se existe e se não é uma pasta
+
+```java
+            byte[] bytes = Files.readAllBytes(file.toPath());
+            exchange.sendResponseHeaders(200, bytes.length);
+            OutputStream os = exchange.getResponseBody();
+            os.write(bytes);
+            os.close();
+```
+→ Lê o conteúdo do arquivo todo em bytes
+→ sendResponseHeaders(200, ...) = "200 OK, aqui está o arquivo"
+→ Escreve os bytes na resposta (envia pro navegador)
+→ Fecha a conexão
+
+```java
+        } else {
+            String response = "404 - Arquivo não encontrado";
+            exchange.sendResponseHeaders(404, response.length());
+            // ...envia mensagem de erro
+        }
+```
+→ Se arquivo não existe, retorna "404 Not Found"
+
+
+PARTE 3: SolicitarAfiliacaoHandler - Processa Cadastro
+-------------------------------------------------------
+```java
+static class SolicitarAfiliacaoHandler implements HttpHandler {
+    public void handle(HttpExchange exchange) throws IOException {
+```
+→ Handler específico para processar cadastros
+
+```java
+        if (!"POST".equals(exchange.getRequestMethod())) {
+            exchange.sendResponseHeaders(405, -1);
+            return;
+        }
+```
+→ Verifica se é uma requisição POST (envio de dados)
+→ Se não for POST, retorna erro 405 "Método não permitido"
+
+```java
+        InputStreamReader isr = new InputStreamReader(exchange.getRequestBody(), "utf-8");
+        BufferedReader br = new BufferedReader(isr);
+        StringBuilder body = new StringBuilder();
+        String line;
+        while ((line = br.readLine()) != null) {
+            body.append(line);
+        }
+```
+→ Lê o corpo da requisição (que vem em JSON)
+→ Vai lendo linha por linha e juntando tudo numa String
+
+```java
+        String jsonString = body.toString();
+        System.out.println("📨 JSON recebido: " + jsonString);
+```
+→ Imprime no console o JSON recebido (pra debug)
+
+```java
+        // Parse manual do JSON
+        Candidato candidato = new Candidato();
+        candidato.setNome(extrairValor(jsonString, "nome"));
+        candidato.setEmail(extrairValor(jsonString, "email"));
+        // ... extrai todos os campos
+```
+→ Como não estamos usando biblioteca JSON, extraímos "na mão"
+→ extrairValor() é um método que busca "email":"valor" no JSON
+
+```java
+        String dataNascimentoStr = extrairValor(jsonString, "dataNascimento");
+        if (dataNascimentoStr != null && !dataNascimentoStr.equals("null")) {
+            candidato.setDataNascimento(LocalDate.parse(dataNascimentoStr));
+        }
+```
+→ Data vem como String "1990-01-01"
+→ LocalDate.parse() converte pra objeto LocalDate do Java
+
+```java
+        AfiliacaoController controller = new AfiliacaoController();
+        Candidato candidatoCriado = controller.criarCandidato(candidato);
+```
+→ Cria uma instância do Controller
+→ Chama o método que vai validar, salvar no banco e gerar token
+
+```java
+        if (candidatoCriado != null) {
+            String jsonResponse = "{\"sucesso\":true,\"mensagem\":\"Cadastro realizado!\",\"token\":\"" + 
+                                candidatoCriado.getToken() + "\"}";
+            // ...envia resposta positiva
+        } else {
+            String jsonResponse = "{\"sucesso\":false,\"mensagem\":\"Erro ao criar candidato\"}";
+            // ...envia resposta negativa
+        }
+```
+→ Monta um JSON de resposta
+→ Se deu certo, retorna sucesso e o token
+→ Se deu errado, retorna erro
+
+
+RESUMO WEBSERVER:
+-----------------
+1. Servidor escuta na porta 8080
+2. Quando alguém acessa uma URL:
+   - Se for arquivo (HTML/CSS), StaticFileHandler serve o arquivo
+   - Se for /api/solicitar-afiliacao, SolicitarAfiliacaoHandler processa
+3. Handler lê o JSON, extrai os dados, chama o Controller
+4. Retorna resposta em JSON pro navegador
+
+================================================================================
+2. AFILIACAOCONTROLLER.JAVA - LÓGICA DE NEGÓCIO
+================================================================================
+
+PROPÓSITO:
+----------
+Concentra toda a lógica do processo de afiliação. É o "cérebro" do sistema.
+
+COMO FUNCIONA:
+--------------
+
+PARTE 1: Construtor
+-------------------
+```java
+public AfiliacaoController() {
+    this.candidatoDAO = new CandidatoDAO();
+    this.afiliacaoDAO = new AfiliacaoDAO();
+}
+```
+→ Quando cria um Controller, ele já cria os DAOs que vai usar
+→ DAOs são as classes que conversam com o banco de dados
+
+PARTE 2: criarCandidato() - Método Principal
+---------------------------------------------
+```java
+public Candidato criarCandidato(Candidato candidato) {
+```
+→ Recebe um objeto Candidato com todos os dados preenchidos
+
+```java
+    if (!Validador.validarEmail(candidato.getEmail())) {
+        System.out.println("❌ ERRO: Email inválido!");
+        return null;
+    }
+```
+→ Valida o email usando a classe Validador
+→ Se email for inválido, para tudo e retorna null (erro)
+
+```java
+    String cpf = candidato.getCpf();
+    String cnpj = candidato.getCnpj();
+    
+    if ((cpf == null || cpf.equals("null") || cpf.trim().isEmpty()) && 
+        (cnpj == null || cnpj.equals("null") || cnpj.trim().isEmpty())) {
+        System.out.println("❌ ERRO: CPF ou CNPJ deve ser informado!");
+        return null;
+    }
+```
+→ Verifica se tem CPF OU CNPJ preenchido
+→ Tem que ter pelo menos um dos dois
+→ Verifica se não é null, "null" (string), ou vazio
+
+```java
+    if (cpf != null && !cpf.equals("null") && !cpf.trim().isEmpty()) {
+        if (!Validador.validarCPF(cpf)) {
+            System.out.println("❌ ERRO: CPF inválido!");
+            return null;
+        }
+    }
+```
+→ Se tem CPF, valida ele
+→ CPF tem que ter 11 dígitos
+
+```java
+    if (cnpj != null && !cnpj.equals("null") && !cnpj.trim().isEmpty()) {
+        if (!Validador.validarCNPJ(cnpj)) {
+            System.out.println("❌ ERRO: CNPJ inválido!");
+            return null;
+        }
+    }
+```
+→ Se tem CNPJ, valida ele
+→ CNPJ tem que ter 14 dígitos
+
+```java
+    candidato.setSituacao("PENDENTE");
+    candidato.setAceiteTermo(true);
+```
+→ Define situação inicial como "PENDENTE" (aguardando aprovação)
+→ Marca que aceitou o termo de compromisso
+
+```java
+    boolean inserido = candidatoDAO.inserir(candidato);
+```
+→ Chama o DAO pra inserir no banco
+→ Retorna true se deu certo, false se deu errado
+
+```java
+    if (!inserido) {
+        System.out.println("❌ ERRO: Não foi possível inserir candidato!");
+        return null;
+    }
+```
+→ Se não conseguiu inserir, para tudo
+
+```java
+    String token = gerarToken(candidato.getEmail());
+    System.out.println("🎫 Token gerado: " + token);
+```
+→ Gera um token único de 32 caracteres
+→ Usa o email como base pra gerar
+
+```java
+    Afiliacao afiliacao = new Afiliacao();
+    afiliacao.setIdCandidato(candidato.getIdCandidato());
+    afiliacao.setToken(token);
+    afiliacao.setDataSolicitacao(new Date());
+    afiliacao.setStatus("PENDENTE");
+```
+→ Cria um objeto Afiliacao
+→ Liga ao candidato pelo ID
+→ Guarda o token e a data atual
+→ Status inicial: PENDENTE
+
+```java
+    afiliacaoDAO.inserir(afiliacao);
+```
+→ Salva a afiliação no banco
+
+```java
+    EmailService.enviarEmailConfirmacao(candidato.getEmail(), candidato.getNome(), token);
+```
+→ Envia email pro candidato com o token
+
+```java
+    candidato.setToken(token);
+    return candidato;
+```
+→ Coloca o token no objeto candidato pra retornar
+→ Retorna o candidato com todos os dados + token
+
+
+PARTE 3: gerarToken() - Geração do Token
+-----------------------------------------
+```java
+private String gerarToken(String email) {
+    try {
+        String input = email + System.currentTimeMillis();
+```
+→ Junta o email com o timestamp atual (milissegundos)
+→ Exemplo: "joao@email.com1700000000000"
+→ Isso garante que cada token é único
+
+```java
+        MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] hash = md.digest(input.getBytes());
+```
+→ Usa algoritmo MD5 pra criar um hash
+→ MD5 transforma qualquer texto em 32 caracteres hexadecimais
+
+```java
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : hash) {
+            String hex = Integer.toHexString(0xff & b);
+            if (hex.length() == 1) hexString.append('0');
+            hexString.append(hex);
+        }
+        return hexString.toString();
+```
+→ Converte os bytes do hash pra formato hexadecimal (0-9, a-f)
+→ Retorna string de 32 caracteres
+
+
+PARTE 4: validarToken() - Validação do Token
+---------------------------------------------
+```java
+public boolean validarToken(String token) {
+    Afiliacao afiliacao = afiliacaoDAO.buscarPorToken(token);
+    
+    if (afiliacao == null) {
+        System.out.println("❌ Token não encontrado!");
+        return false;
+    }
+```
+→ Busca no banco uma afiliação com esse token
+→ Se não achar, token é inválido
+
+```java
+    if (!"PENDENTE".equals(afiliacao.getStatus())) {
+        System.out.println("❌ Token já foi validado ou expirado!");
+        return false;
+    }
+```
+→ Verifica se ainda está pendente
+→ Se já foi usado (status diferente de PENDENTE), não pode usar de novo
+
+```java
+    afiliacaoDAO.atualizarStatus(afiliacao.getIdAfiliacao(), "VALIDADO");
+    System.out.println("✅ Token validado com sucesso!");
+    return true;
+```
+→ Atualiza o status pra "VALIDADO"
+→ Retorna true (sucesso)
+
+
+RESUMO AFILIACAOCONTROLLER:
+---------------------------
+1. Recebe dados do candidato
+2. Valida email, CPF/CNPJ
+3. Salva no banco via CandidatoDAO
+4. Gera token único (MD5 de email + timestamp)
+5. Cria e salva registro de Afiliacao
+6. Envia email com token
+7. Retorna candidato criado com token
+
+================================================================================
+3. CANDIDATODAO.JAVA - ACESSO AO BANCO (CANDIDATOS)
+================================================================================
+
+PROPÓSITO:
+----------
+Faz todas as operações no banco relacionadas à tabela "candidato".
+É a única classe que escreve SQL para candidatos.
+
+COMO FUNCIONA:
+--------------
+
+PARTE 1: inserir() - Insere Novo Candidato
+-------------------------------------------
+```java
+public boolean inserir(Candidato candidato) {
+    String sql = "INSERT INTO candidato (nome, email, cpf, cnpj, sexo, " +
+                 "data_nascimento, nacionalidade, endereco, telefone, " +
+                 "perfil_voluntario, habilidades, areas_interesse, " +
+                 "situacao, aceite_termo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+```
+→ String com o comando SQL de INSERT
+→ Os "?" são placeholders (serão substituídos pelos valores)
+→ Usar "?" previne SQL Injection (ataque de segurança)
+
+```java
+    try (Connection conn = DatabaseConnection.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+```
+→ Pega uma conexão com o banco
+→ PreparedStatement = permite usar placeholders (?)
+→ RETURN_GENERATED_KEYS = retorna o ID gerado automaticamente
+
+```java
+        stmt.setString(1, candidato.getNome());
+        stmt.setString(2, candidato.getEmail());
+        stmt.setString(3, candidato.getCpf());
+        // ... preenche todos os 14 valores
+```
+→ Substitui cada "?" pelo valor correspondente
+→ setString(1, ...) = substitui o 1º "?"
+→ setString(2, ...) = substitui o 2º "?"
+→ E assim por diante...
+
+```java
+        if (candidato.getDataNascimento() != null) {
+            stmt.setDate(6, java.sql.Date.valueOf(candidato.getDataNascimento()));
+        } else {
+            stmt.setNull(6, java.sql.Types.DATE);
+        }
+```
+→ Data precisa de tratamento especial
+→ Converte LocalDate pra java.sql.Date
+→ Se for null, insere NULL no banco
+
+```java
+        int rowsAffected = stmt.executeUpdate();
+```
+→ Executa o INSERT no banco
+→ Retorna quantas linhas foram afetadas (deve ser 1)
+
+```java
+        if (rowsAffected > 0) {
+            try (ResultSet rs = stmt.getGeneratedKeys()) {
+                if (rs.next()) {
+                    candidato.setIdCandidato(rs.getInt(1));
+                }
+            }
+        }
+```
+→ Se inseriu com sucesso, pega o ID gerado
+→ getGeneratedKeys() retorna o ID auto_increment
+→ Coloca esse ID no objeto candidato
+
+```java
+        return rowsAffected > 0;
+```
+→ Retorna true se inseriu, false se não inseriu
+
+
+PARTE 2: buscarPorEmail() - Busca Candidato por Email
+------------------------------------------------------
+```java
+public Candidato buscarPorEmail(String email) {
+    String sql = "SELECT * FROM candidato WHERE email = ?";
+```
+→ SQL de SELECT com WHERE
+→ Busca linha onde email é igual ao parâmetro
+
+```java
+    try (Connection conn = DatabaseConnection.getConnection();
+         PreparedStatement stmt = conn.prepareStatement(sql)) {
+        
+        stmt.setString(1, email);
+        ResultSet rs = stmt.executeQuery();
+```
+→ Prepara a query substituindo o "?" pelo email
+→ executeQuery() = executa SELECT e retorna resultados
+
+```java
+        if (rs.next()) {
+            Candidato candidato = new Candidato();
+            candidato.setIdCandidato(rs.getInt("id_candidato"));
+            candidato.setNome(rs.getString("nome"));
+            candidato.setEmail(rs.getString("email"));
+            // ... preenche todos os campos
+```
+→ rs.next() = avança pra próxima linha (primeira, nesse caso)
+→ Se achou, cria objeto Candidato
+→ Preenche com dados do ResultSet
+→ rs.getString("nome") = pega valor da coluna "nome"
+
+```java
+            return candidato;
+        }
+    } catch (SQLException e) {
+        e.printStackTrace();
+    }
+    return null;
+```
+→ Se não achou nada, retorna null
+→ Se der erro, imprime e retorna null
+
+
+RESUMO CANDIDATODAO:
+--------------------
+1. inserir(): Monta SQL INSERT, substitui valores, executa, retorna ID gerado
+2. buscarPorEmail(): Monta SQL SELECT, executa, transforma resultado em objeto
+3. Usa PreparedStatement pra evitar SQL Injection
+4. try-with-resources fecha conexões automaticamente
+
+================================================================================
+4. AFILIACAODAO.JAVA - ACESSO AO BANCO (AFILIAÇÕES)
+================================================================================
+
+PROPÓSITO:
+----------
+Faz operações na tabela "afiliacao" (solicitações de cadastro).
+
+COMO FUNCIONA:
+--------------
+
+Similar ao CandidatoDAO, mas para tabela afiliacao:
+
+```java
+public boolean inserir(Afiliacao afiliacao) {
+    String sql = "INSERT INTO afiliacao (id_candidato, token, data_solicitacao, status) " +
+                 "VALUES (?, ?, ?, ?)";
+```
+→ Insere novo registro de afiliação
+→ Liga ao candidato pelo id_candidato
+
+```java
+public Afiliacao buscarPorToken(String token) {
+    String sql = "SELECT * FROM afiliacao WHERE token = ?";
+```
+→ Busca afiliação pelo token
+→ Usado na validação do email
+
+```java
+public boolean atualizarStatus(int idAfiliacao, String novoStatus) {
+    String sql = "UPDATE afiliacao SET status = ? WHERE id_afiliacao = ?";
+```
+→ Atualiza o status (PENDENTE → VALIDADO, por exemplo)
+
+RESUMO AFILIACAODAO:
+--------------------
+Mesma lógica do CandidatoDAO, mas para afiliações.
+
+================================================================================
+5. CANDIDATO.JAVA E AFILIACAO.JAVA - CLASSES DE MODELO
+================================================================================
+
+PROPÓSITO:
+----------
+Representam dados. São como "caixinhas" que guardam informações.
+
+CANDIDATO.JAVA:
+---------------
+```java
+public class Candidato {
+    private int idCandidato;
+    private String nome;
+    private String email;
+    // ... todos os atributos
+```
+→ Cada atributo representa uma coluna do banco
+
+```java
+    public String getNome() {
+        return nome;
+    }
+    
+    public void setNome(String nome) {
+        this.nome = nome;
+    }
+```
+→ Getters e Setters pra cada atributo
+→ get = pegar valor
+→ set = definir valor
+
+AFILIACAO.JAVA:
+---------------
+Mesma ideia, mas pra afiliação:
+- idAfiliacao
+- idCandidato (liga ao candidato)
+- token
+- dataSolicitacao
+- status
+
+RESUMO MODELS:
+--------------
+São POJOs (Plain Old Java Objects) = objetos simples só com dados.
+Não têm lógica, só armazenam informações.
+
+================================================================================
+6. DATABASECONNECTION.JAVA - CONEXÃO COM MYSQL
+================================================================================
+
+PROPÓSITO:
+----------
+Gerencia conexões com o banco de dados.
+
+COMO FUNCIONA:
+--------------
+
+```java
+public class DatabaseConnection {
+    private static final String URL = "jdbc:mysql://localhost:3306/rede_mais_social";
+    private static final String USER = "root";
+    private static final String PASSWORD = "";
+```
+→ Constantes com dados de conexão
+→ URL = endereço do banco (localhost porta 3306, banco rede_mais_social)
+→ USER = usuário root
+→ PASSWORD = sem senha (vazio)
+
+```java
+    public static Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(URL, USER, PASSWORD);
+    }
+```
+→ Método estático (pode chamar sem criar objeto)
+→ DriverManager.getConnection() = conecta ao MySQL
+→ Retorna objeto Connection (representa a conexão)
+
+RESUMO DATABASECONNECTION:
+--------------------------
+Centraliza configuração do banco. Se mudar senha, muda só aqui.
+
+================================================================================
+7. VALIDADOR.JAVA - VALIDAÇÕES
+================================================================================
+
+PROPÓSITO:
+----------
+Valida dados (email, CPF, CNPJ) antes de salvar no banco.
+
+COMO FUNCIONA:
+--------------
+
+```java
+public static boolean validarEmail(String email) {
+    String regex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$";
+    return email != null && email.matches(regex);
+}
+```
+→ Regex = expressão regular (padrão de texto)
+→ Verifica se email tem formato: texto@texto.texto
+→ Exemplo válido: joao@gmail.com
+→ Exemplo inválido: joao@gmail (falta o .com)
+
+```java
+public static boolean validarCPF(String cpf) {
+    cpf = cpf.replaceAll("[^0-9]", "");
+    return cpf.length() == 11;
+}
+```
+→ Remove tudo que não é número
+→ Verifica se tem 11 dígitos
+→ (Validação simplificada, não verifica dígitos verificadores)
+
+```java
+public static boolean validarCNPJ(String cnpj) {
+    cnpj = cnpj.replaceAll("[^0-9]", "");
+    return cnpj.length() == 14;
+}
+```
+→ Remove tudo que não é número
+→ Verifica se tem 14 dígitos
+
+RESUMO VALIDADOR:
+-----------------
+Métodos estáticos de validação. Evita salvar dados inválidos no banco.
+
+================================================================================
+8. EMAILSERVICE.JAVA - ENVIO DE EMAILS
+================================================================================
+
+PROPÓSITO:
+----------
+Envia emails de confirmação pros candidatos.
+
+COMO FUNCIONA:
+--------------
+
+```java
+public static void enviarEmailConfirmacao(String email, String nome, String token) {
+    System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    System.out.println("📧 EMAIL DE CONFIRMAÇÃO");
+    System.out.println("Para: " + email);
+    System.out.println("Nome: " + nome);
+    System.out.println("Token: " + token);
+    System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+}
+```
+→ Por enquanto, só imprime no console (simulação)
+→ Em produção, usaria SMTP pra enviar email real
+→ Seria configurado com servidor de email (Gmail, etc)
+
+RESUMO EMAILSERVICE:
+--------------------
+Simula envio de email. Facilita testar sem precisar de servidor SMTP.
+
+================================================================================
+9. FRONTEND - HTML/CSS/JAVASCRIPT
+================================================================================
+
+COMO O FRONTEND SE CONECTA COM O BACKEND:
+------------------------------------------
+
+EXEMPLO: termo-compromisso.html
+--------------------------------
+
+```javascript
+// Pega dados do sessionStorage (salvos nas telas anteriores)
+const dadosIdentificacao = JSON.parse(sessionStorage.getItem('dadosIdentificacao'));
+const dadosPerfil = JSON.parse(sessionStorage.getItem('dadosPerfil'));
+```
+→ sessionStorage = armazenamento temporário do navegador
+→ JSON.parse() = converte texto JSON em objeto JavaScript
+
+```javascript
+// Junta todos os dados em um único objeto
+const dadosCompletos = {
+    ...dadosIdentificacao,
+    ...dadosPerfil,
+    aceiteTermo: true
+};
+```
+→ Operador spread (...) = espalha todos os atributos
+→ Cria objeto com TODOS os dados: identificação + perfil + aceite
+
+```javascript
+// Envia pro backend
+fetch('/api/solicitar-afiliacao', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(dadosCompletos)
+})
+```
+→ fetch() = faz requisição HTTP
+→ POST = enviando dados
+→ headers = indica que está enviando JSON
+→ JSON.stringify() = converte objeto JavaScript em texto JSON
+
+```javascript
+.then(response => response.json())
+.then(data => {
+    if (data.sucesso) {
+        // Mostra modal com token
+        document.getElementById('tokenGerado').textContent = data.token;
+        modal.style.display = 'block';
+    }
+})
+```
+→ then() = quando receber resposta
+→ response.json() = converte resposta em objeto
+→ Verifica se deu sucesso
+→ Exibe token na tela
+
+RESUMO FRONTEND:
+----------------
+1. Coleta dados nos formulários
+2. Salva no sessionStorage
+3. Na última tela, junta tudo
+4. Envia pro backend via fetch (AJAX)
+5. Recebe resposta e exibe na tela
+
+================================================================================
+10. FLUXO COMPLETO PASSO A PASSO
+================================================================================
+
+1. USUÁRIO PREENCHE FORMULÁRIO
+   └─> JavaScript coleta dados e salva no sessionStorage
+
+2. USUÁRIO CLICA "SOLICITAR AFILIAÇÃO"
+   └─> JavaScript junta todos os dados
+   └─> fetch() envia POST pra /api/solicitar-afiliacao
+
+3. WEBSERVER RECEBE A REQUISIÇÃO
+   └─> SolicitarAfiliacaoHandler é acionado
+   └─> Lê o corpo da requisição (JSON)
+   └─> Extrai cada campo do JSON
+   └─> Cria objeto Candidato com os dados
+
+4. WEBSERVER CHAMA O CONTROLLER
+   └─> AfiliacaoController.criarCandidato(candidato)
+
+5. CONTROLLER VALIDA OS DADOS
+   └─> Validador.validarEmail()
+   └─> Validador.validarCPF() ou validarCNPJ()
+   └─> Se inválido, retorna null (erro)
+
+6. CONTROLLER SALVA NO BANCO
+   └─> CandidatoDAO.inserir(candidato)
+   └─> DAO monta SQL INSERT
+   └─> DAO executa no MySQL
+   └─> Banco retorna ID gerado
+   └─> DAO coloca ID no objeto candidato
+
+7. CONTROLLER GERA TOKEN
+   └─> gerarToken(email)
+   └─> MD5 de (email + timestamp)
+   └─> Retorna string de 32 caracteres
+
+8. CONTROLLER SALVA AFILIAÇÃO
+   └─> Cria objeto Afiliacao
+   └─> AfiliacaoDAO.inserir(afiliacao)
+   └─> Salva no banco com token e status PENDENTE
+
+9. CONTROLLER ENVIA EMAIL
+   └─> EmailService.enviarEmailConfirmacao()
+   └─> (Por enquanto só imprime no console)
+
+10. CONTROLLER RETORNA CANDIDATO
+    └─> Retorna objeto com token preenchido
+
+11. WEBSERVER MONTA RESPOSTA JSON
+    └─> {"sucesso":true,"token":"abc123..."}
+
+12. NAVEGADOR RECEBE RESPOSTA
+    └─> JavaScript exibe modal com token
+    └─> Usuário copia token
+
+13. USUÁRIO COLA TOKEN NA VALIDAÇÃO
+    └─> JavaScript envia POST pra /api/validar-email
+
+14. WEBSERVER RECEBE TOKEN
+    └─> ValidarEmailHandler é acionado
+    └─> Chama Controller.validarToken()
+
+15. CONTROLLER BUSCA NO BANCO
+    └─> AfiliacaoDAO.buscarPorToken()
+    └─> Verifica se status é PENDENTE
+    └─> Atualiza status pra VALIDADO
+
+16. SISTEMA RESPONDE SUCESSO
+    └─> Candidato está validado
+    └─> Aguarda aprovação de representante
+
+================================================================================
+RESUMO FINAL - O QUE VOCÊ PRECISA SABER PARA EXPLICAR
+================================================================================
+
+1. ARQUITETURA MVC:
+   - Model (Candidato, Afiliacao) = dados
+   - View (HTML/CSS/JS) = interface
+   - Controller (AfiliacaoController) = lógica
+   - DAO = ponte com banco de dados
+
+2. FLUXO DE DADOS:
+   Formulário → JSON → WebServer → Controller → DAO → MySQL
+   MySQL → DAO → Controller → WebServer → JSON → Navegador
+
+3. VALIDAÇÕES:
+   - Email: formato correto
+   - CPF: 11 dígitos
+   - CNPJ: 14 dígitos
+
+4. TOKEN:
+   - Gerado com MD5(email + timestamp)
+   - 32 caracteres hexadecimais
+   - Único e não-repetível
+   - Usado pra validar email
+
+5. BANCO DE DADOS:
+   - 2 tabelas: candidato e afiliacao
+   - Relacionamento 1:N (um candidato, várias afiliações)
+   - PreparedStatement previne SQL Injection
+
+6. COMUNICAÇÃO:
+   - Frontend → Backend: JSON via POST
+   - Backend → Frontend: JSON com sucesso/erro
+   - sessionStorage: armazena dados entre telas
+
+COM ISSO VOCÊ CONSEGUE EXPLICAR TODO O SISTEMA! 🚀
+
+================================================================================
