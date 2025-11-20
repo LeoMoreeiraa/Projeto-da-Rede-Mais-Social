@@ -1,0 +1,255 @@
+================================================================================
+           INSTALAÇÃO E CONFIGURAÇÃO DO MYSQL - PASSO A PASSO
+================================================================================
+
+PROBLEMA: MySQL pedindo senha após instalação
+SOLUÇÃO: Seguir os passos abaixo para configurar sem senha ou com senha conhecida
+
+================================================================================
+OPÇÃO 1: INSTALAÇÃO DO ZERO (RECOMENDADO)
+================================================================================
+
+1. DESINSTALAR MySQL completamente (se já instalou):
+
+   sudo service mysql stop
+   sudo apt-get remove --purge mysql-server mysql-client mysql-common -y
+   sudo apt-get autoremove -y
+   sudo apt-get autoclean
+   sudo rm -rf /var/lib/mysql
+   sudo rm -rf /etc/mysql
+
+
+2. INSTALAR MySQL novamente:
+
+   sudo apt-get update
+   sudo apt-get install mysql-server -y
+
+
+3. INICIAR o serviço MySQL:
+
+   sudo service mysql start
+
+
+4. ACESSAR MySQL como root (SEM SENHA inicialmente):
+
+   sudo mysql
+
+
+5. DENTRO DO MySQL, configure sem senha ou com senha simples:
+
+   # Opção A: SEM SENHA (mais fácil para desenvolvimento)
+   ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '';
+   FLUSH PRIVILEGES;
+   exit;
+
+   # Opção B: COM SENHA "root" (se preferir)
+   ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'root';
+   FLUSH PRIVILEGES;
+   exit;
+
+
+6. TESTAR a conexão:
+
+   # Se escolheu SEM SENHA:
+   mysql -u root
+
+   # Se escolheu COM SENHA "root":
+   mysql -u root -p
+   (digite: root)
+
+
+7. CRIAR o banco de dados:
+
+   # Se SEM SENHA:
+   mysql -u root < scriptBancoDados.txt
+
+   # Se COM SENHA:
+   mysql -u root -p < scriptBancoDados.txt
+   (digite: root)
+
+
+8. ATUALIZAR DatabaseConnection.java (SOMENTE se usou senha):
+
+   Abra: src/DatabaseConnection.java
+   
+   Linha que tem:
+   Connection conn = DriverManager.getConnection(url, "root", "");
+   
+   Mude para:
+   Connection conn = DriverManager.getConnection(url, "root", "root");
+
+
+9. COMPILAR e EXECUTAR:
+
+   bash run.sh
+
+================================================================================
+OPÇÃO 2: RESETAR SENHA DO MYSQL (se já está instalado)
+================================================================================
+
+1. PARAR o serviço MySQL:
+
+   sudo service mysql stop
+
+
+2. INICIAR MySQL em modo seguro (sem verificação de senha):
+
+   sudo mkdir -p /var/run/mysqld
+   sudo chown mysql:mysql /var/run/mysqld
+   sudo mysqld_safe --skip-grant-tables &
+
+
+3. EM OUTRA ABA DO TERMINAL, conectar ao MySQL:
+
+   mysql -u root
+
+
+4. RESETAR a senha:
+
+   # Para SEM SENHA:
+   FLUSH PRIVILEGES;
+   ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '';
+   FLUSH PRIVILEGES;
+   exit;
+
+   # Para senha "root":
+   FLUSH PRIVILEGES;
+   ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'root';
+   FLUSH PRIVILEGES;
+   exit;
+
+
+5. MATAR o processo MySQL em modo seguro:
+
+   sudo pkill mysqld
+   sleep 2
+
+
+6. INICIAR MySQL normalmente:
+
+   sudo service mysql start
+
+
+7. TESTAR:
+
+   mysql -u root
+   # ou
+   mysql -u root -p
+   (digite: root se configurou com senha)
+
+
+8. SEGUIR passos 7-9 da OPÇÃO 1
+
+================================================================================
+OPÇÃO 3: COMANDOS RÁPIDOS (COPIAR E COLAR)
+================================================================================
+
+Execute linha por linha no terminal:
+
+# Desinstalar MySQL completamente
+sudo service mysql stop
+sudo apt-get remove --purge mysql-server mysql-client mysql-common -y
+sudo apt-get autoremove -y
+sudo rm -rf /var/lib/mysql /etc/mysql
+
+# Reinstalar
+sudo apt-get update
+sudo apt-get install mysql-server -y
+
+# Iniciar
+sudo service mysql start
+
+# Configurar SEM senha
+sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY ''; FLUSH PRIVILEGES;"
+
+# Criar banco
+mysql -u root < scriptBancoDados.txt
+
+# Verificar se criou
+mysql -u root -e "SHOW DATABASES; USE rede_mais_social; SHOW TABLES;"
+
+# Rodar projeto
+bash run.sh
+
+================================================================================
+VERIFICAÇÃO FINAL
+================================================================================
+
+1. MySQL rodando?
+   sudo service mysql status
+   (deve mostrar: "active (running)")
+
+2. Consegue conectar?
+   mysql -u root
+   (deve entrar no prompt do MySQL: mysql>)
+
+3. Banco criado?
+   mysql -u root -e "SHOW DATABASES;"
+   (deve listar: rede_mais_social)
+
+4. Tabelas criadas?
+   mysql -u root -e "USE rede_mais_social; SHOW TABLES;"
+   (deve listar: afiliacao, candidato)
+
+5. Java funcionando?
+   java -version
+   (deve mostrar versão do Java)
+
+6. Projeto compila?
+   bash run.sh
+   (deve compilar e iniciar servidor)
+
+7. Sistema acessível?
+   curl http://localhost:8080/index.html
+   (deve retornar HTML)
+
+================================================================================
+ERROS COMUNS
+================================================================================
+
+ERRO: "Can't connect to local MySQL server"
+--------------------------------------------
+Solução:
+sudo service mysql start
+
+ERRO: "Access denied for user 'root'@'localhost'"
+--------------------------------------------------
+Solução:
+Siga a OPÇÃO 2 para resetar a senha
+
+ERRO: "Unknown database 'rede_mais_social'"
+-------------------------------------------
+Solução:
+mysql -u root < scriptBancoDados.txt
+
+ERRO: "Port 8080 already in use"
+--------------------------------
+Solução:
+pkill -f "java.*WebServer"
+bash run.sh
+
+================================================================================
+RESUMO PARA PROFESSORA
+================================================================================
+
+Comandos mínimos para rodar o projeto em ambiente limpo:
+
+# 1. Instalar MySQL
+sudo apt-get update
+sudo apt-get install mysql-server -y
+sudo service mysql start
+
+# 2. Configurar MySQL sem senha
+sudo mysql -e "ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY ''; FLUSH PRIVILEGES;"
+
+# 3. Criar banco de dados
+cd /caminho/do/projeto
+mysql -u root < scriptBancoDados.txt
+
+# 4. Executar projeto
+bash run.sh
+
+# 5. Acessar no navegador
+http://localhost:8080/index.html
+
+================================================================================
