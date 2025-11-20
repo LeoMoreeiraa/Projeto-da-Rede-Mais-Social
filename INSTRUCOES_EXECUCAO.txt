@@ -1,0 +1,336 @@
+================================================================================
+           REDE MAIS SOCIAL - INSTRUÇÕES DE EXECUÇÃO
+================================================================================
+
+Este documento contém as instruções para configurar, compilar e executar
+o sistema Rede Mais Social.
+
+================================================================================
+📋 PRÉ-REQUISITOS
+================================================================================
+
+1. Java JDK 8 ou superior instalado
+2. MySQL 8.0 ou superior instalado e rodando
+3. Terminal/Prompt de Comando
+4. Navegador web (Chrome, Firefox, Edge, etc.)
+
+================================================================================
+🗄️ CONFIGURAÇÃO DO BANCO DE DADOS
+================================================================================
+
+1. Certifique-se que o MySQL está rodando:
+   
+   Linux/Mac:
+   sudo service mysql start
+   
+   Windows:
+   Inicie o serviço MySQL pelo Painel de Serviços
+
+2. Crie o banco de dados executando o script:
+   
+   mysql -u root -p < scriptBancoDados.txt
+   
+   (Se não houver senha no MySQL, use apenas: mysql -u root < scriptBancoDados.txt)
+
+3. Verifique se o banco foi criado:
+   
+   mysql -u root -p
+   SHOW DATABASES;
+   USE rede_mais_social;
+   SHOW TABLES;
+
+O script cria as seguintes tabelas:
+- candidato: Armazena dados dos candidatos a voluntário
+- afiliacao: Registra solicitações de afiliação e tokens de validação
+
+================================================================================
+▶️ EXECUTANDO O SISTEMA
+================================================================================
+
+No terminal, navegue até a pasta do projeto e execute:
+
+   bash run.sh
+
+O script irá:
+1. Compilar todos os arquivos Java
+2. Iniciar o servidor web na porta 8080
+
+Quando ver a mensagem:
+   "REDE MAIS SOCIAL - Servidor Web Iniciado"
+   "Acesse o sistema em: http://localhost:8080"
+
+O sistema está pronto para uso!
+
+================================================================================
+🌐 ACESSANDO O SISTEMA
+================================================================================
+
+Abra seu navegador e acesse:
+
+   http://localhost:8080/index.html
+
+Páginas disponíveis:
+- http://localhost:8080/index.html - Página inicial
+- http://localhost:8080/tipo-afiliacao.html - Escolha tipo de cadastro
+- http://localhost:8080/login.html - Login (para candidatos com cadastro)
+
+================================================================================
+🧪 TESTANDO O FLUXO COMPLETO
+================================================================================
+
+FLUXO 1: CADASTRO COM CPF (Pessoa Física)
+------------------------------------------
+
+1. Acesse: http://localhost:8080/index.html
+2. Clique em "Quero me Cadastrar"
+3. Escolha "Pessoa Física (CPF)"
+4. Preencha o formulário de identificação:
+   - Nome completo
+   - Email válido
+   - CPF (11 dígitos)
+   - Sexo
+   - Data de nascimento
+   - Nacionalidade
+   - Endereço completo
+   - Telefone
+5. Clique em "Próximo"
+6. Preencha o formulário de perfil:
+   - Perfil (descrição sobre você)
+   - Habilidades
+   - Áreas de interesse
+7. Clique em "Próximo"
+8. Leia e aceite o termo de compromisso
+9. Clique em "Solicitar Afiliação"
+10. Um token será exibido (anote ou copie)
+11. Verifique seu email (o token também foi enviado)
+12. Cole o token na página de validação
+13. Aguarde aprovação
+
+FLUXO 2: CADASTRO COM CNPJ (Pessoa Jurídica)
+---------------------------------------------
+
+1. Acesse: http://localhost:8080/index.html
+2. Clique em "Quero me Cadastrar"
+3. Escolha "Pessoa Jurídica (CNPJ)"
+4. Preencha certidões:
+   - Certidão de Probidade Administrativa
+   - Certidão de Inelegibilidade
+5. Clique em "Próximo"
+6. Preencha dados do representante:
+   - Nome do representante
+   - Email
+   - CNPJ (14 dígitos)
+   - Sexo
+   - Data de nascimento
+   - Nacionalidade
+   - Endereço
+   - Telefone
+7. Continue com os passos 6-13 do Fluxo 1
+
+FLUXO 3: LOGIN (Candidato com cadastro anterior)
+-------------------------------------------------
+
+1. Acesse: http://localhost:8080/login.html
+2. Digite seu email e CPF
+3. O sistema buscará seu cadastro anterior
+4. Continue de onde parou
+
+================================================================================
+📁 ESTRUTURA DO PROJETO
+================================================================================
+
+Projeto-da-Rede-Mais-Social/
+│
+├── src/                              # Código-fonte Java
+│   ├── WebServer.java                # Servidor HTTP principal
+│   ├── AfiliacaoController.java      # Lógica de negócio de afiliação
+│   ├── Candidato.java                # Modelo de dados do candidato
+│   ├── Afiliacao.java                # Modelo de dados da afiliação
+│   ├── CandidatoDAO.java             # Acesso ao banco (candidatos)
+│   ├── AfiliacaoDAO.java             # Acesso ao banco (afiliações)
+│   ├── DatabaseConnection.java       # Conexão com MySQL
+│   ├── EmailService.java             # Envio de emails
+│   └── Validador.java                # Validações (CPF, CNPJ, email)
+│
+├── bin/                              # Classes compiladas (.class)
+│
+├── web/                              # Interface web (HTML/CSS)
+│   ├── index.html                    # Página inicial
+│   ├── tipo-afiliacao.html           # Escolha CPF ou CNPJ
+│   ├── formulario-identificacao.html # Dados pessoais (CPF)
+│   ├── formulario-cnpj.html          # Certidões (CNPJ)
+│   ├── formulario-representante-cnpj.html # Dados representante
+│   ├── formulario-perfil.html        # Perfil do voluntário
+│   ├── termo-compromisso.html        # Termo de compromisso
+│   ├── validacao-email.html          # Validação do token
+│   ├── status-aguardando.html        # Aguardando aprovação
+│   ├── login.html                    # Login de candidatos
+│   └── styles.css                    # Estilos CSS
+│
+├── mysql-connector-j-8.0.33.jar      # Driver JDBC MySQL
+├── scriptBancoDados.txt              # Script SQL do banco
+├── run.sh                            # Script para executar
+└── README.md                         # Documentação do projeto
+
+================================================================================
+🔧 EXPLICAÇÃO DO CÓDIGO
+================================================================================
+
+CAMADA DE APRESENTAÇÃO (web/)
+------------------------------
+Arquivos HTML com formulários e JavaScript que:
+- Coletam dados do usuário
+- Validam campos no navegador
+- Armazenam dados temporários no sessionStorage
+- Fazem requisições AJAX para o backend
+- Exibem mensagens de sucesso/erro
+
+CAMADA DE SERVIDOR (WebServer.java)
+------------------------------------
+Servidor HTTP que:
+- Escuta requisições na porta 8080
+- Serve arquivos estáticos (HTML, CSS)
+- Expõe APIs REST:
+  * POST /api/solicitar-afiliacao - Cria novo candidato
+  * POST /api/validar-email - Valida token de email
+  * POST /api/verificar-email - Verifica se email já existe
+- Processa JSON das requisições
+- Retorna respostas em JSON
+
+CAMADA DE CONTROLE (AfiliacaoController.java)
+----------------------------------------------
+Lógica de negócio que:
+- Valida dados (email, CPF, CNPJ)
+- Cria candidatos no banco de dados
+- Gera tokens MD5 de 32 caracteres
+- Envia emails de confirmação
+- Valida tokens recebidos
+- Gerencia aprovação/rejeição
+
+CAMADA DE DADOS (DAOs)
+-----------------------
+CandidatoDAO.java:
+- inserir(): Cria novo candidato no banco
+- buscarPorEmail(): Busca candidato pelo email
+- buscarPorId(): Busca candidato por ID
+- atualizarSituacao(): Atualiza status do candidato
+
+AfiliacaoDAO.java:
+- inserir(): Registra nova solicitação de afiliação
+- validarToken(): Verifica se token é válido
+- buscarPorToken(): Busca afiliação pelo token
+- atualizarStatus(): Atualiza status da afiliação
+
+CAMADA DE MODELO (Models)
+--------------------------
+Candidato.java:
+- Representa um candidato com todos seus dados
+- Getters e setters para cada atributo
+
+Afiliacao.java:
+- Representa uma solicitação de afiliação
+- Contém token, data de solicitação e status
+
+UTILITÁRIOS
+-----------
+DatabaseConnection.java:
+- Gerencia conexão com MySQL
+- Usa pool de conexões
+- Configuração: localhost, porta 3306, usuário root
+
+EmailService.java:
+- Envia emails de confirmação
+- Envia emails de aprovação/rejeição
+- Inclui token no corpo do email
+
+Validador.java:
+- validarEmail(): Valida formato de email
+- validarCPF(): Valida CPF (11 dígitos)
+- validarCNPJ(): Valida CNPJ (14 dígitos)
+
+================================================================================
+⚠️ SOLUÇÃO DE PROBLEMAS
+================================================================================
+
+ERRO: "Cannot connect to MySQL"
+--------------------------------
+Solução:
+1. Verifique se o MySQL está rodando
+2. Confirme usuário e senha em DatabaseConnection.java
+3. Teste conexão: mysql -u root -p
+
+ERRO: "Port 8080 already in use"
+--------------------------------
+Solução:
+1. Pare o processo que está usando a porta
+   Linux/Mac: lsof -ti:8080 | xargs kill -9
+   Windows: netstat -ano | findstr :8080
+2. Ou altere a porta no WebServer.java
+
+ERRO: "ClassNotFoundException: com.mysql.cj.jdbc.Driver"
+---------------------------------------------------------
+Solução:
+Verifique se mysql-connector-j-8.0.33.jar está na pasta do projeto
+
+Página não carrega
+------------------
+Solução:
+1. Verifique se o servidor está rodando
+2. Confirme a URL: http://localhost:8080/index.html
+3. Veja os logs no terminal onde executou run.sh
+
+Token não funciona
+------------------
+Solução:
+1. Copie o token completo (32 caracteres)
+2. Verifique se não há espaços extras
+3. Token é válido por tempo limitado (conforme configuração)
+
+================================================================================
+📧 CONFIGURAÇÃO DE EMAIL (OPCIONAL)
+================================================================================
+
+Por padrão, o sistema simula o envio de emails (exibe no console).
+
+Para enviar emails reais, configure em EmailService.java:
+1. Defina servidor SMTP (ex: smtp.gmail.com)
+2. Configure porta (587 para TLS)
+3. Insira email e senha da conta remetente
+4. Habilite "Apps menos seguros" ou use senha de aplicativo
+
+================================================================================
+🎓 INFORMAÇÕES ACADÊMICAS
+================================================================================
+
+Este projeto foi desenvolvido como trabalho acadêmico e demonstra:
+- Arquitetura MVC (Model-View-Controller)
+- Desenvolvimento web full-stack
+- Integração frontend-backend
+- Persistência de dados com MySQL
+- Validações e segurança básica
+- Interface responsiva
+- Sistema de tokens para validação
+
+Tecnologias utilizadas:
+- Java (backend)
+- HTML/CSS/JavaScript (frontend)
+- MySQL (banco de dados)
+- JDBC (conexão com banco)
+- JSON (comunicação cliente-servidor)
+
+================================================================================
+✅ CHECKLIST DE EXECUÇÃO
+================================================================================
+
+[ ] MySQL instalado e rodando
+[ ] Banco de dados criado (scriptBancoDados.txt executado)
+[ ] Java JDK instalado
+[ ] Arquivo mysql-connector-j-8.0.33.jar presente
+[ ] Executou: bash run.sh
+[ ] Servidor iniciou sem erros
+[ ] Acessou http://localhost:8080/index.html
+[ ] Testou cadastro completo
+[ ] Token recebido e validado
+[ ] Sistema funcionando corretamente
+
+================================================================================
